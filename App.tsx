@@ -1,5 +1,5 @@
 import React from 'react';
-import HeartScanner from './components/HeartScanner';
+import HeartScanner from './HeartScanner';
 
 function App() {
   return (
@@ -14,8 +14,12 @@ function App() {
       {/* Main Content */}
       <main className="relative z-10 min-h-screen flex flex-col">
         <header className="p-6 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
-          <div className="text-sm tracking-widest uppercase text-white/50 font-semibold">जेमिनाई एआई</div>
-          <div className="text-sm tracking-widest uppercase text-white/50 font-semibold">हृदयको गूंज</div>
+          <div className="text-sm tracking-widest uppercase text-white/50 font-semibold">
+            जेमिनाई एआई
+          </div>
+          <div className="text-sm tracking-widest uppercase text-white/50 font-semibold">
+            हृदयको गूंज
+          </div>
         </header>
         
         <div className="flex-grow flex items-center justify-center p-4">
