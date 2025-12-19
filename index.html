@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ne">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>हृदयको गूंज</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;600&family=Rozha+One&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Mukta', sans-serif;
+        background-color: #0f0518;
+        color: #e0d0f5;
+      }
+      h1, h2, h3 {
+        font-family: 'Rozha One', serif;
+      }
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .heart-beat {
+        animation: heartbeat 1.5s infinite;
+      }
+      @keyframes heartbeat {
+        0% { transform: scale(1); }
+        14% { transform: scale(1.1); }
+        28% { transform: scale(1); }
+        42% { transform: scale(1.1); }
+        70% { transform: scale(1); }
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1a1025; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4c3a6e; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6d529f; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
