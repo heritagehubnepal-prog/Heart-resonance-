@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build --debug",
     "preview": "vite preview",
-    "start": "vite" 
+    "start": "vite"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -18,8 +18,8 @@
     "@google/genai": "^1.31.0",
     "lucide-react": "^0.556.0",
     "recharts": "^2.12.0",
-    "node-fetch": "^3.4.0",        // added for making Qwen API calls in Node
-    "dotenv": "^16.3.1"             // optional: for storing API keys securely
+    "node-fetch": "^3.4.0",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "@types/node": "^18.19.0",
