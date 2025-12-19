@@ -1,12 +1,8 @@
+// HeartScanner.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Camera,
-  Send,
-  RefreshCw,
   Heart,
   Loader2,
-  Sparkles,
-  MessageCircle,
   Mic,
   Play,
   Pause,
@@ -17,6 +13,7 @@ import type { AppState, HeartAnalysisResult, ChatMessage } from './types';
 import { analyzeHeartContent, chatWithHeart } from './services/HeartService';
 import EmotionChart from './EmotionChart';
 
+// --- AUDIO UTILITY ---
 const extractAudioData = async (audioBlob: Blob): Promise<{ peaks: number[], duration: number }> => {
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -31,15 +28,12 @@ const extractAudioData = async (audioBlob: Blob): Promise<{ peaks: number[], dur
     for (let i = 0; i < SAMPLES; i++) {
       const start = i * step;
       let sum = 0;
-      for (let j = 0; j < step && (start + j) < channelData.length; j++) {
-        sum += Math.abs(channelData[start + j]);
-      }
+      for (let j = 0; j < step && (start + j) < channelData.length; j++) sum += Math.abs(channelData[start + j]);
       peaks.push(sum / step);
     }
 
     const max = Math.max(...peaks) || 1;
     const normalized = peaks.map(p => Math.min(1, Math.max(0.1, p / max)));
-
     return { peaks: normalized, duration: audioBuffer.duration };
   } catch (e) {
     console.error("Audio processing error", e);
@@ -47,6 +41,7 @@ const extractAudioData = async (audioBlob: Blob): Promise<{ peaks: number[], dur
   }
 };
 
+// --- COMPONENT ---
 const HeartScanner: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [textInput, setTextInput] = useState('');
@@ -65,11 +60,9 @@ const HeartScanner: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Result & Chat
   const [result, setResult] = useState<HeartAnalysisResult | null>(null);
-  const [soulImage, setSoulImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -77,7 +70,7 @@ const HeartScanner: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- IMAGE UPLOAD ---
+  // --- HANDLERS ---
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -87,7 +80,7 @@ const HeartScanner: React.FC = () => {
     }
   };
 
-  // --- AUDIO RECORDING ---
+  // Audio Recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -127,8 +120,7 @@ const HeartScanner: React.FC = () => {
     }
   };
 
-  const clearAudio = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const clearAudio = () => {
     setAudioBase64(null);
     setIsRecording(false);
     setIsPlaying(false);
@@ -140,8 +132,7 @@ const HeartScanner: React.FC = () => {
     }
   };
 
-  const togglePlayback = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const togglePlayback = () => {
     if (audioRef.current) {
       if (isPlaying) audioRef.current.pause();
       else audioRef.current.play();
@@ -154,21 +145,7 @@ const HeartScanner: React.FC = () => {
     setCurrentTime(0);
   };
 
-  useEffect(() => {
-    let animationFrameId: number;
-
-    const render = () => {
-      if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
-      if (isPlaying) animationFrameId = requestAnimationFrame(render);
-    };
-
-    if (isPlaying) render();
-    else cancelAnimationFrame(animationFrameId!);
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isPlaying]);
-
-  // Draw Waveform
+  // Waveform drawing
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || audioPeaks.length === 0) return;
@@ -182,59 +159,49 @@ const HeartScanner: React.FC = () => {
     const progress = audioDuration > 0 ? currentTime / audioDuration : 0;
 
     ctx.clearRect(0, 0, width, height);
-
-    audioPeaks.forEach((peak, index) => {
-      const x = index * (width / audioPeaks.length);
+    audioPeaks.forEach((peak, i) => {
+      const x = i * (width / audioPeaks.length);
       const barHeight = peak * height;
       const y = (height - barHeight) / 2;
-
-      const isPlayed = (index / audioPeaks.length) < progress;
-      ctx.fillStyle = isPlayed ? '#4ade80' : '#14532d';
-
+      ctx.fillStyle = (i / audioPeaks.length) < progress ? '#4ade80' : '#14532d';
       ctx.beginPath();
       ctx.roundRect(x, y, barWidth, barHeight, 4);
       ctx.fill();
     });
   }, [audioPeaks, currentTime, audioDuration]);
 
-  // --- ANALYSIS USING QWEN ---
+  useEffect(() => {
+    if (audioBase64 && audioRef.current) {
+      audioRef.current.src = audioBase64;
+      audioRef.current.load();
+    }
+  }, [audioBase64]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, isChatLoading]);
+
+  // --- HEART ANALYSIS ---
   const handleAnalysis = async () => {
     if (!textInput.trim() && !selectedImage && !audioBase64) return;
 
     setAppState(AppState.ANALYZING);
     setError(null);
     setResult(null);
-    setSoulImage(null);
     setChatMessages([]);
 
     try {
-      const analysisText = await analyzeHeartContent(textInput, selectedImage || undefined, audioBase64 || undefined);
-
-      const analysisResult: HeartAnalysisResult = {
-        summary: analysisText,
-        dominant_emotion: "अनिश्चित",
-        emotions: [],
-        hidden_desire: "अनिश्चित",
-        guidance: "अनिश्चित",
-        spirit_archetype: "अनिश्चित",
-        healing_gemstone: "अनिश्चित",
-        soul_poem: "अनिश्चित"
-      };
-
+      const analysisResult = await analyzeHeartContent(textInput, selectedImage || undefined, audioBase64 || undefined);
       setResult(analysisResult);
-
-      // Placeholder soul image
-      setSoulImage("/placeholder-soul.png");
-
       setAppState(AppState.RESULTS);
     } catch (err) {
       console.error(err);
-      setError("हामीले अहिले तपाईंको हृदय पढ्न सकेनौं। कृपया पुन: प्रयास गर्नुहोस्।");
+      setError("हामीले तपाईंको हृदय पढ्न सकेनौं। कृपया पुन: प्रयास गर्नुहोस्।");
       setAppState(AppState.ERROR);
     }
   };
 
-  // --- CHAT USING QWEN ---
+  // --- CHAT ---
   const handleChatSend = async () => {
     if (!chatInput.trim() || !result) return;
 
@@ -244,7 +211,7 @@ const HeartScanner: React.FC = () => {
     setIsChatLoading(true);
 
     try {
-      const responseText = await chatWithHeart(chatMessages, userMsg.text);
+      const responseText = await chatWithHeart(chatMessages, result, userMsg.text);
       const botMsg: ChatMessage = { role: 'model', text: responseText };
       setChatMessages(prev => [...prev, botMsg]);
     } catch (e) {
@@ -254,114 +221,88 @@ const HeartScanner: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, isChatLoading]);
-
-  useEffect(() => {
-    if (audioBase64 && audioRef.current) {
-      audioRef.current.src = audioBase64;
-      audioRef.current.load();
-    }
-  }, [audioBase64]);
-
   const reset = () => {
     setAppState(AppState.IDLE);
     setTextInput('');
     setSelectedImage(null);
     setAudioBase64(null);
     setResult(null);
-    setSoulImage(null);
     setChatMessages([]);
     setAudioPeaks([]);
   };
 
-  // --- RENDER LOGIC ---
+  // --- RENDER ---
   if (appState === AppState.ANALYZING) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] animate-in fade-in duration-700">
-        <div className="relative">
-          <Heart className="w-32 h-32 text-pink-600 heart-beat drop-shadow-[0_0_25px_rgba(236,72,153,0.6)]" fill="currentColor" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="w-12 h-12 text-white animate-spin" />
-          </div>
-        </div>
-        <p className="mt-8 text-xl font-light tracking-widest text-pink-200 animate-pulse">
-          तपाईंको मुटुको आवाज र धड्कन सुन्दै...
-        </p>
+        <Heart className="w-32 h-32 text-pink-600 heart-beat drop-shadow-lg" fill="currentColor" />
+        <Loader2 className="w-12 h-12 text-white animate-spin mt-4" />
+        <p className="mt-8 text-xl text-pink-200 animate-pulse">तपाईंको मुटुको आवाज सुन्दै...</p>
       </div>
     );
   }
 
   if (appState === AppState.RESULTS && result) {
     return (
-      <div className="w-full max-w-4xl mx-auto p-4 space-y-12 animate-in slide-in-from-bottom-10 fade-in duration-700 pb-20">
-        {/* Header */}
-        <h2 className="text-2xl font-bold text-pink-600">{result.summary}</h2>
-
-        {/* Soul Image */}
-        {soulImage && <img src={soulImage} alt="Soul representation" className="w-full max-w-lg mx-auto rounded-xl shadow-lg" />}
-
-        {/* Chat Section */}
-        <div className="space-y-4">
-          <div className="max-h-96 overflow-y-auto p-4 border rounded-lg bg-pink-50">
-            {chatMessages.map((msg, idx) => (
-              <div key={idx} className={msg.role === 'user' ? 'text-right text-pink-800' : 'text-left text-pink-600'}>
-                {msg.text}
-              </div>
+      <div className="max-w-4xl mx-auto p-4 space-y-8">
+        <h2 className="text-2xl font-semibold text-pink-600">{result.summary}</h2>
+        <EmotionChart emotions={result.emotions} />
+        <div className="mt-4">
+          <h3 className="font-medium">Guidance:</h3>
+          <p>{result.guidance}</p>
+        </div>
+        <div className="mt-4 space-y-2">
+          <h3 className="font-medium">Chat with your Heart:</h3>
+          <div className="border p-2 h-64 overflow-y-auto">
+            {chatMessages.map((msg, i) => (
+              <p key={i} className={msg.role === 'user' ? 'text-right' : 'text-left'}>
+                <strong>{msg.role === 'user' ? 'तपाईं' : 'Heart'}:</strong> {msg.text}
+              </p>
             ))}
             <div ref={chatEndRef} />
           </div>
-          <div className="flex gap-2">
+          <div className="flex mt-2">
             <input
-              className="flex-1 p-2 border rounded-lg"
+              type="text"
               value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="सन्देश लेख्नुहोस्..."
+              onChange={e => setChatInput(e.target.value)}
+              className="flex-1 border p-2"
+              placeholder="Type your message..."
             />
-            <button onClick={handleChatSend} disabled={isChatLoading} className="p-2 bg-pink-600 text-white rounded-lg">
-              <Send />
-            </button>
+            <button onClick={handleChatSend} className="ml-2 px-4 py-2 bg-pink-600 text-white rounded">Send</button>
           </div>
         </div>
-
-        <button onClick={reset} className="mt-6 p-2 bg-gray-200 rounded-lg">पुन: सुरु गर्नुहोस्</button>
+        <button onClick={reset} className="mt-4 px-6 py-2 bg-gray-200 rounded">Reset</button>
       </div>
     );
   }
 
   // IDLE STATE
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 animate-in fade-in zoom-in duration-500">
+    <div className="max-w-2xl mx-auto p-6 space-y-4">
       <textarea
         value={textInput}
-        onChange={(e) => setTextInput(e.target.value)}
-        placeholder="यहाँ तपाईंको भावनात्मक पाठ लेख्नुहोस्..."
-        className="w-full p-3 border rounded-lg mb-4"
+        onChange={e => setTextInput(e.target.value)}
+        placeholder="तपाईंको भावनाहरू यहाँ लेख्नुहोस्..."
+        className="w-full border p-2 rounded"
       />
-      <input type="file" accept="image/*" onChange={handleImageUpload} ref={fileInputRef} className="mb-4" />
-      
-      <div className="flex gap-2 items-center mb-4">
-        <button onClick={isRecording ? stopRecording : startRecording} className="p-2 bg-pink-600 text-white rounded-lg flex items-center gap-1">
-          <Mic /> {isRecording ? "रेकर्डिङ रोक्नुहोस्" : "रेकर्डिङ सुरु गर्नुहोस्"}
-        </button>
+      <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} />
+      <div className="flex space-x-2 mt-2 items-center">
+        {!isRecording && <button onClick={startRecording} className="px-4 py-2 bg-green-500 text-white rounded">Record</button>}
+        {isRecording && <button onClick={stopRecording} className="px-4 py-2 bg-red-500 text-white rounded">Stop</button>}
         {audioBase64 && (
           <>
-            <button onClick={togglePlayback} className="p-2 bg-green-500 text-white rounded-lg">
-              {isPlaying ? <Pause /> : <Play />}
-            </button>
-            <button onClick={clearAudio} className="p-2 bg-red-500 text-white rounded-lg"><Trash2 /></button>
+            <button onClick={togglePlayback} className="px-2 py-1 bg-blue-500 text-white rounded">{isPlaying ? <Pause /> : <Play />}</button>
+            <button onClick={clearAudio} className="px-2 py-1 bg-gray-500 text-white rounded"><Trash2 /></button>
+            <canvas ref={canvasRef} width={300} height={50} className="border ml-2" />
+            <audio ref={audioRef} onEnded={handleAudioEnded} hidden />
           </>
         )}
       </div>
-
-      <canvas ref={canvasRef} width={400} height={80} className="mb-4 w-full rounded-lg bg-gray-100" />
-
-      <button onClick={handleAnalysis} className="w-full p-3 bg-pink-600 text-white rounded-lg">
-        <Sparkles /> हृदय विश्लेषण गर्नुहोस्
-      </button>
-
+      <button onClick={handleAnalysis} className="mt-4 px-6 py-2 bg-pink-600 text-white rounded">Analyze Heart</button>
       {error && <p className="text-red-600 mt-2">{error}</p>}
+    </div>
+  );
+};
 
-      <audio ref={audioRef} onEnded={handleAudioEnded} hidden />
-    </d
+export default HeartScanner;
